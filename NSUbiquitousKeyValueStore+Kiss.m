@@ -14,10 +14,14 @@ NSString * const KissNSUbiquitousKeyValueStoreDidChangeLocallyNotification = @"K
 NSString * const KissNSUbiquitousKeyValueStoreDidChangeLocallyKeyKey = @"KissNSUbiquitousKeyValueStoreDidChangeLocallyKeyKey";
 NSString * const KissNSUbiquitousKeyValueStoreDidChangeLocallyValueKey = @"KissNSUbiquitousKeyValueStoreDidChangeLocallyValueKey";
 
-#define SETTER_IMP(type, setter, key, boxedValue)                       \
-imp_implementationWithBlock(^void(id sender, type value){               \
-[sender setter:value forKey:key];                                       \
-[[NSNotificationCenter defaultCenter] postNotificationName:KissNSUbiquitousKeyValueStoreDidChangeLocallyNotification object:nil userInfo:@{KissNSUbiquitousKeyValueStoreDidChangeLocallyKeyKey : key, KissNSUbiquitousKeyValueStoreDidChangeLocallyValueKey : boxedValue}] ; \
+#define SETTER_IMP(type, setter, key, boxedValue)                        \
+imp_implementationWithBlock(^void(id sender, type value){                \
+if (boxedValue){                                                         \
+  [sender setter:value forKey:key];                                      \
+} else {                                                                 \
+  [sender removeObjectForKey:key];                                       \
+}                                                                        \
+[[NSNotificationCenter defaultCenter] postNotificationName:KissNSUbiquitousKeyValueStoreDidChangeLocallyNotification object:nil userInfo:@{KissNSUbiquitousKeyValueStoreDidChangeLocallyKeyKey : key, KissNSUbiquitousKeyValueStoreDidChangeLocallyValueKey : boxedValue ?: [NSNull null]}] ; \
 })
 
 #define GETTER_IMP(type, getter, userDefaultsKey)      \
