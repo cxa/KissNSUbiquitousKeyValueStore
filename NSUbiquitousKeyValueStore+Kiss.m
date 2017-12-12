@@ -14,14 +14,20 @@ NSString * const KissNSUbiquitousKeyValueStoreDidChangeLocallyNotification = @"K
 NSString * const KissNSUbiquitousKeyValueStoreDidChangeLocallyKeyKey = @"KissNSUbiquitousKeyValueStoreDidChangeLocallyKeyKey";
 NSString * const KissNSUbiquitousKeyValueStoreDidChangeLocallyValueKey = @"KissNSUbiquitousKeyValueStoreDidChangeLocallyValueKey";
 
-#define SETTER_IMP(type, setter, key, boxedValue)                        \
+#define SETTER_OBJ_IMP(type, setter, key, value)                         \
 imp_implementationWithBlock(^void(id sender, type value){                \
-if (boxedValue){                                                         \
+if (value){                                                              \
   [sender setter:value forKey:key];                                      \
 } else {                                                                 \
   [sender removeObjectForKey:key];                                       \
 }                                                                        \
-[[NSNotificationCenter defaultCenter] postNotificationName:KissNSUbiquitousKeyValueStoreDidChangeLocallyNotification object:nil userInfo:@{KissNSUbiquitousKeyValueStoreDidChangeLocallyKeyKey : key, KissNSUbiquitousKeyValueStoreDidChangeLocallyValueKey : boxedValue ?: [NSNull null]}] ; \
+[[NSNotificationCenter defaultCenter] postNotificationName:KissNSUbiquitousKeyValueStoreDidChangeLocallyNotification object:nil userInfo:@{KissNSUbiquitousKeyValueStoreDidChangeLocallyKeyKey : key, KissNSUbiquitousKeyValueStoreDidChangeLocallyValueKey : value ?: [NSNull null]}] ; \
+})
+
+#define SETTER_IMP(type, setter, key, value)                        \
+imp_implementationWithBlock(^void(id sender, type value){           \
+  [sender setter:value forKey:key];                                 \
+  [[NSNotificationCenter defaultCenter] postNotificationName:KissNSUbiquitousKeyValueStoreDidChangeLocallyNotification object:nil userInfo:@{KissNSUbiquitousKeyValueStoreDidChangeLocallyKeyKey : key, KissNSUbiquitousKeyValueStoreDidChangeLocallyValueKey : @(value) ?: [NSNull null]}] ; \
 })
 
 #define GETTER_IMP(type, getter, userDefaultsKey)      \
@@ -62,25 +68,25 @@ return [sender getter:userDefaultsKey];                \
           [mStr appendString:@":"];
           setterName = mStr;
         }
-        
+
         NSString *type = types[key];
         NSString *ubKey = propertyKeyPairs && propertyKeyPairs[key] ? propertyKeyPairs[key] : key;
         IMP imp = NULL;
         if ([type isEqualToString:@"@"])
-          imp = SETTER_IMP(id, setObject, ubKey, value);
+          imp = SETTER_OBJ_IMP(id, setObject, ubKey, value);
         else if ([type isEqualToString:KISS_BOOL_TYPE])
-          imp = SETTER_IMP(BOOL, setBool, ubKey, (value ? @YES : @NO));
+          imp = SETTER_IMP(BOOL, setBool, ubKey, value);
         else if ([type isEqualToString:@"d"])
-          imp = SETTER_IMP(double, setDouble, ubKey, @(value));
+          imp = SETTER_IMP(double, setDouble, ubKey, value);
         else if ([type isEqualToString:@"q"])
-          imp = SETTER_IMP(long long, setLongLong, ubKey, @(value));
+          imp = SETTER_IMP(long long, setLongLong, ubKey, value);
         else
           @throw [NSException exceptionWithName:@"KissNSUserDefaults" reason:[NSString stringWithFormat:@"type %@ is not supported by NSUbiquitousKeyValueStore, use object, bool, double, long long only.", type] userInfo:nil];
-        
+
         SEL sel = NSSelectorFromString(setterName);
         const char *methodType = [[NSString stringWithFormat:@"v@:%@", types[key]] UTF8String];
         class_addMethod(self, sel, imp, methodType);
-        
+
         if ([type isEqualToString:@"@"])
           imp = GETTER_IMP(id, objectForKey, ubKey);
         else if ([type isEqualToString:KISS_BOOL_TYPE])
@@ -91,7 +97,7 @@ return [sender getter:userDefaultsKey];                \
           imp = GETTER_IMP(long long, longLongForKey, ubKey);
         else
           @throw [NSException exceptionWithName:@"KissNSUserDefaults" reason:[NSString stringWithFormat:@"type %@ is not supported by NSUbiquitousKeyValueStore, use object, bool, double, long long only.", type] userInfo:nil];
-        
+
         sel = NSSelectorFromString(getterName);
         methodType = [[NSString stringWithFormat:@"%@@:", types[key]] UTF8String];
         class_addMethod(self, sel, imp, methodType);
@@ -123,7 +129,7 @@ return [sender getter:userDefaultsKey];                \
   NSRange r = NSMakeRange(2, [accessor length]-2);
   if ((r = [accessor rangeOfString:@"," options:0 range:r]).location != NSNotFound)
     return [accessor substringWithRange:NSMakeRange(2, r.location-2)];
-  
+
   return [accessor substringFromIndex:2];
 }
 
@@ -148,15 +154,15 @@ return [sender getter:userDefaultsKey];                \
           getters[propName] = [self kiss_getAccessorName:[NSString stringWithUTF8String:subAttr]];
         else
           getters[propName] = propName;
-        
+
         if ((subAttr = strstr(attr, ",S"))) // handle custom setter
           setters[propName] = [self kiss_getAccessorName:[NSString stringWithUTF8String:subAttr]];
-        
+
         types[propName] = [[NSString stringWithUTF8String:attr] substringWithRange:NSMakeRange(1, 1)];
       }
     }
   }
-  
+
   free(classProperties);
   *outGetters = getters;
   *outSetters = [setters count] ? setters : nil;
@@ -164,3 +170,4 @@ return [sender getter:userDefaultsKey];                \
 }
 
 @end
+
